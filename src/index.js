@@ -7,6 +7,7 @@ const { processMessage } = require('./services/keyword');
 const { checkAllFeeds } = require('./services/rss');
 const { handleKeywordCommand } = require('./commands/keyword');
 const { handleRssCommand } = require('./commands/rss');
+const { handleHelpCommand } = require('./commands/help');
 const { keepAlive } = require('./utils/keep-alive');
 
 // Command prefix
@@ -28,6 +29,7 @@ if (!process.env.DISCORD_TOKEN || process.env.DISCORD_TOKEN === 'your_discord_bo
   console.log(`${PREFIX}rss list - List all monitored RSS feeds`);
   console.log(`${PREFIX}rss check - Force check all RSS feeds now`);
   console.log(`${PREFIX}help - Show this help message`);
+  console.log(`\nSlash commands are also available when the bot is properly configured.`);
   
   // Exit with success code since this is just a demo
   process.exit(0);
@@ -45,6 +47,20 @@ const client = new Client({
   ]
 });
 
+// Create a collection for slash commands
+client.commands = new Collection();
+
+// Load all command modules
+const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`);
+  // Set a new item in the Collection with the key as the command name and the value as the exported module
+  if (command.data && command.execute) {
+    client.commands.set(command.data.name, command);
+  }
+}
+
 // When the client is ready, run this code (only once)
 client.once(Events.ClientReady, () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -59,7 +75,33 @@ client.once(Events.ClientReady, () => {
   });
 });
 
-// Handle messages
+// Handle interaction events (slash commands)
+client.on(Events.InteractionCreate, async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const command = client.commands.get(interaction.commandName);
+
+  if (!command) {
+    console.error(`No command matching ${interaction.commandName} was found.`);
+    return;
+  }
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(`Error executing ${interaction.commandName}`);
+    console.error(error);
+    
+    // Reply with error if the interaction hasn't been replied to yet
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
+    } else {
+      await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+    }
+  }
+});
+
+// Handle messages (prefix commands)
 client.on(Events.MessageCreate, async (message) => {
   try {
     // Ignore messages from bots
@@ -92,29 +134,6 @@ client.on(Events.MessageCreate, async (message) => {
     console.error('Error handling message:', error);
   }
 });
-
-// Help command
-async function handleHelpCommand(message) {
-  const helpText = `
-**Discord Keyword & RSS Bot Commands**
-
-**Keyword Forwarding:**
-\`${PREFIX}keyword add <keyword> <channelId>\` - Add a keyword to forward to a channel
-\`${PREFIX}keyword remove <keyword> <channelId>\` - Remove a keyword-channel mapping
-\`${PREFIX}keyword list\` - List all keyword-channel mappings
-
-**RSS Feeds:**
-\`${PREFIX}rss add <url> <channelId> [checkInterval]\` - Add an RSS feed to monitor
-\`${PREFIX}rss remove <url> [channelId]\` - Remove an RSS feed
-\`${PREFIX}rss list\` - List all monitored RSS feeds
-\`${PREFIX}rss check\` - Force check all RSS feeds now
-
-**Other:**
-\`${PREFIX}help\` - Show this help message
-`;
-
-  await message.reply(helpText);
-}
 
 // Error handling
 client.on(Events.Error, (error) => {

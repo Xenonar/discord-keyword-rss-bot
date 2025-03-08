@@ -1,0 +1,26 @@
+run = "npm start"
+language = "nodejs"
+entrypoint = "src/index.js"
+
+[env]
+PREFIX = "!"
+DEFAULT_RSS_CHECK_INTERVAL = "30"
+
+[nix]
+channel = "stable-22_11"
+
+[packager]
+language = "nodejs"
+
+[packager.features]
+packageSearch = true
+guessImports = true
+enabledForHosting = false
+
+[unitTest]
+language = "nodejs"
+
+[deployment]
+run = ["sh", "-c", "npm start"]
+deploymentTarget = "cloudrun"
+ignorePorts = false

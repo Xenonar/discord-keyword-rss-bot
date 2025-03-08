@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "demo": "node src/utils/demo.js",
-    "test-db": "node src/utils/test-db.js"
+    "test-db": "node src/utils/test-db.js",
+    "deploy-commands": "node src/deploy-commands.js"
   },
   "keywords": [
     "discord",
